@@ -17,17 +17,14 @@ const createProviderModel = {
   openai: (apiKey: string, model: string) => createOpenAI({ apiKey })(model),
   anthropic: (apiKey: string, model: string) =>
     createAnthropic({ apiKey })(model),
-  google: (apiKey: string, model: string, enableWebSearch?: boolean) =>
-    createGoogleGenerativeAI({ apiKey })(model, {
-      ...(enableWebSearch && { useSearchGrounding: true }),
-    }),
+  google: (apiKey: string, model: string) =>
+    createGoogleGenerativeAI({ apiKey })(model),
 
   openrouter: async (
     apiKey: string,
     model: string,
     ctx: ActionCtx,
-    userId?: Id<"users">,
-    enableWebSearch?: boolean
+    userId?: Id<"users">
   ) => {
     const openrouter = createOpenRouter({ apiKey });
 
@@ -48,11 +45,8 @@ const createProviderModel = {
       }
     }
 
-    // Apply OpenRouter sorting shortcuts and web search
-    let modifiedModel = applyOpenRouterSorting(model, sorting);
-    if (enableWebSearch) {
-      modifiedModel = `${modifiedModel}:online`;
-    }
+    // Apply OpenRouter sorting shortcuts
+    const modifiedModel = applyOpenRouterSorting(model, sorting);
 
     return openrouter.chat(modifiedModel);
   },
@@ -64,21 +58,19 @@ export const createLanguageModel = async (
   provider: ProviderType,
   model: string,
   apiKey: string,
-  userId?: Id<"users">,
-  enableWebSearch?: boolean
+  userId?: Id<"users">
 ): Promise<LanguageModel> => {
   if (provider === "openrouter") {
     return createProviderModel.openrouter(
       apiKey,
       model,
       ctx,
-      userId,
-      enableWebSearch
+      userId
     );
   }
 
   if (provider === "google") {
-    return createProviderModel.google(apiKey, model, enableWebSearch);
+    return createProviderModel.google(apiKey, model);
   }
 
   const factory = createProviderModel[provider];
@@ -92,7 +84,6 @@ export const createLanguageModel = async (
 export const getProviderStreamOptions = async (
   provider: ProviderType,
   model: string,
-  enableWebSearch?: boolean,
   reasoningConfig?: { effort?: "low" | "medium" | "high"; maxTokens?: number }
 ): Promise<ProviderStreamOptions> => {
   // Check reasoning support with enhanced detection

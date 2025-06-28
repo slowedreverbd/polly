@@ -83,6 +83,8 @@ function validateApiKeyFormat(provider: string, key: string): boolean {
       return key.length > 20;
     case "openrouter":
       return key.startsWith("sk-or-") && key.length > 20;
+    case "exa":
+      return key.length > 20; // Exa API keys don't have a specific prefix
     default:
       return false;
   }
@@ -95,7 +97,8 @@ export const storeApiKey = mutation({
       v.literal("openai"),
       v.literal("anthropic"),
       v.literal("google"),
-      v.literal("openrouter")
+      v.literal("openrouter"),
+      v.literal("exa")
     ),
     rawKey: v.string(),
   },
@@ -145,7 +148,8 @@ export const storeClientEncryptedApiKey = mutation({
       v.literal("openai"),
       v.literal("anthropic"),
       v.literal("google"),
-      v.literal("openrouter")
+      v.literal("openrouter"),
+      v.literal("exa")
     ),
     encryptedKey: v.string(), // Client-encrypted using CryptoJS or Web Crypto API
     partialKey: v.string(), // For display purposes
@@ -210,7 +214,8 @@ export const removeApiKey = mutation({
       v.literal("openai"),
       v.literal("anthropic"),
       v.literal("google"),
-      v.literal("openrouter")
+      v.literal("openrouter"),
+      v.literal("exa")
     ),
   },
   handler: async (ctx, args) => {
@@ -235,7 +240,8 @@ export const validateApiKey = mutation({
       v.literal("openai"),
       v.literal("anthropic"),
       v.literal("google"),
-      v.literal("openrouter")
+      v.literal("openrouter"),
+      v.literal("exa")
     ),
     isValid: v.boolean(),
   },
@@ -290,7 +296,8 @@ function hasEnvironmentApiKeys(): boolean {
     process.env.OPENAI_API_KEY ||
       process.env.ANTHROPIC_API_KEY ||
       process.env.GEMINI_API_KEY ||
-      process.env.OPENROUTER_API_KEY
+      process.env.OPENROUTER_API_KEY ||
+      process.env.EXA_API_KEY
   );
 }
 
@@ -301,7 +308,8 @@ export const getDecryptedApiKey = action({
       v.literal("openai"),
       v.literal("anthropic"),
       v.literal("google"),
-      v.literal("openrouter")
+      v.literal("openrouter"),
+      v.literal("exa")
     ),
   },
   handler: async (ctx, args): Promise<string | null> => {
@@ -353,6 +361,8 @@ function getEnvironmentApiKey(provider: string): string | null {
       return process.env.GEMINI_API_KEY || null;
     case "openrouter":
       return process.env.OPENROUTER_API_KEY || null;
+    case "exa":
+      return process.env.EXA_API_KEY || null;
     default:
       return null;
   }
@@ -365,7 +375,8 @@ export const getClientEncryptedApiKey = query({
       v.literal("openai"),
       v.literal("anthropic"),
       v.literal("google"),
-      v.literal("openrouter")
+      v.literal("openrouter"),
+      v.literal("exa")
     ),
   },
   handler: async (ctx, args) => {
@@ -402,7 +413,8 @@ export const getEncryptedApiKeyData = internalQuery({
       v.literal("openai"),
       v.literal("anthropic"),
       v.literal("google"),
-      v.literal("openrouter")
+      v.literal("openrouter"),
+      v.literal("exa")
     ),
   },
   handler: async (ctx, args) => {

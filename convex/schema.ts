@@ -137,7 +137,8 @@ export default defineSchema({
       v.literal("openai"),
       v.literal("anthropic"),
       v.literal("google"),
-      v.literal("openrouter")
+      v.literal("openrouter"),
+      v.literal("exa")
     ),
     // Server-side encryption (for server operations)
     encryptedKey: v.optional(v.array(v.number())),

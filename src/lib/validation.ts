@@ -12,6 +12,8 @@ export function validateApiKey(provider: string, key: string): boolean {
       return key.length > 20; // Google API keys vary in format
     case "openrouter":
       return key.startsWith("sk-or-") && key.length > 20;
+    case "exa":
+      return key.length > 20; // Exa API keys don't have a specific prefix
     default:
       return false;
   }
