@@ -8,6 +8,10 @@ This guide covers deploying the Polly app to Vercel.
 2. Vercel CLI installed (optional): `pnpm i -g vercel`
 3. Your Convex deployment URL
 
+## PR Preview Builds
+
+For information on setting up automatic preview deployments for pull requests, see [PR Preview Setup Guide](docs/PR_PREVIEW_SETUP.md).
+
 ## Deployment Steps
 
 ### Option 1: Deploy via Vercel Dashboard (Recommended)
