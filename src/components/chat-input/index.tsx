@@ -36,6 +36,7 @@ import { ROUTES } from "@/lib/routes";
 import { isUserModel } from "@/lib/type-guards";
 import { cn } from "@/lib/utils";
 import { usePrivateMode } from "@/providers/private-mode-context";
+import { useUI } from "@/providers/ui-provider";
 import { useUserDataContext } from "@/providers/user-data-context";
 import type {
   Attachment,
@@ -48,6 +49,7 @@ import type {
 import { AspectRatioDrawer } from "./aspect-ratio-drawer";
 import { AspectRatioPicker } from "./aspect-ratio-picker";
 import { AttachmentDisplay } from "./attachment-display";
+import { ChatInputDrawer } from "./chat-input-drawer";
 import { ChatInputField } from "./chat-input-field";
 import { ExpandToggleButton } from "./expand-toggle-button";
 import { FileUploadButton } from "./file-upload-button";
@@ -133,6 +135,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
   ) => {
     const { user, canSendMessage } = useUserDataContext();
     const { hasReplicateApiKey } = useReplicateApiKey();
+    const { isMobile } = useUI();
     const navigate = useNavigate();
 
     const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -213,6 +216,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
 
     // Fullscreen input state
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [isMultiline, setIsMultiline] = useState(false);
     const [isTransitioning, setIsTransitioning] = useState(false);
 
@@ -627,14 +631,18 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
     }, []);
 
     const handleToggleFullscreen = useCallback(() => {
-      setIsTransitioning(true);
-      setIsFullscreen(!isFullscreen);
+      if (isMobile) {
+        setIsDrawerOpen(!isDrawerOpen);
+      } else {
+        setIsTransitioning(true);
+        setIsFullscreen(!isFullscreen);
 
-      // Reset transition state after animation completes
-      setTimeout(() => {
-        setIsTransitioning(false);
-      }, 300);
-    }, [isFullscreen]);
+        // Reset transition state after animation completes
+        setTimeout(() => {
+          setIsTransitioning(false);
+        }, 300);
+      }
+    }, [isMobile, isDrawerOpen, isFullscreen]);
 
     const handleCloseFullscreen = useCallback(() => {
       setIsTransitioning(true);
@@ -1016,6 +1024,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
       mentionOpen,
     ]);
 
+    const handleDrawerSubmit = useCallback(() => {
+      submit();
+    }, [submit]);
+
     const handleSendAsNewConversation = useCallback(
       async (
         shouldNavigate = true,
@@ -1110,6 +1122,498 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
       }
       return placeholder;
     }, [generationMode, placeholder]);
+
+    const renderFormContent = useCallback(
+      (isInDrawer = false) => {
+        const textareaClassName = isInDrawer
+          ? selectedPersonaId
+            ? "min-h-[60vh] max-h-[70vh] pl-28 border-none bg-transparent resize-none"
+            : "min-h-[60vh] max-h-[70vh] border-none bg-transparent resize-none"
+          : isFullscreen
+            ? selectedPersonaId
+              ? "min-h-[50vh] max-h-[85vh] pl-28"
+              : "min-h-[50vh] max-h-[85vh]"
+            : selectedPersonaId
+              ? "pl-28"
+              : undefined;
+
+        return (
+          <>
+            <AttachmentDisplay
+              attachments={attachments}
+              onRemoveAttachment={removeAttachment}
+            />
+
+            {/* Unified input container for main prompt and negative prompt */}
+            <div className="flex flex-col">
+              <div className="flex items-end gap-3">
+                <div className="flex-1 flex items-center relative">
+                  {selectedPersonaId && (
+                    <div className="absolute left-1 top-1 z-10 flex items-center gap-1 text-xs text-muted-foreground">
+                      <span
+                        ref={personaChipRef}
+                        className="inline-flex items-center gap-1 rounded-md bg-accent/40 px-1.5 py-0.5"
+                      >
+                        {currentPersona?.icon ? (
+                          <span className="text-xs">{currentPersona.icon}</span>
+                        ) : (
+                          <UserIcon className="h-3.5 w-3.5" />
+                        )}
+                        <span className="max-w-[140px] truncate">
+                          {currentPersona?.name || "Persona"}
+                        </span>
+                        <button
+                          type="button"
+                          className="ml-1 text-muted-foreground hover:text-foreground"
+                          onClick={() => setSelectedPersonaId(null)}
+                          aria-label="Clear persona"
+                        >
+                          <XIcon className="h-3.5 w-3.5" />
+                        </button>
+                      </span>
+                    </div>
+                  )}
+                  <ChatInputField
+                    key={conversationId || "new-conversation"}
+                    value={input}
+                    onChange={handleInputChange}
+                    onSubmit={isInDrawer ? handleDrawerSubmit : submit}
+                    textareaRef={textareaRef}
+                    placeholder={selectedPersonaId ? "" : dynamicPlaceholder}
+                    firstLineIndentPx={
+                      selectedPersonaId
+                        ? Math.max(personaChipWidth + 8, 0)
+                        : undefined
+                    }
+                    onMentionNavigate={direction => {
+                      if (!mentionOpen) {
+                        return false;
+                      }
+                      setMentionActiveIndex(prev => {
+                        const next = direction === "up" ? prev - 1 : prev + 1;
+                        const max = Math.max(mentionItems.length - 1, 0);
+                        if (next < 0) {
+                          return max;
+                        }
+                        if (next > max) {
+                          return 0;
+                        }
+                        return next;
+                      });
+                      return true;
+                    }}
+                    onMentionConfirm={() => {
+                      if (!mentionOpen) {
+                        return false;
+                      }
+                      const item = mentionItems[mentionActiveIndex];
+                      if (!item) {
+                        return true;
+                      }
+                      const textarea = textareaRef.current;
+                      const text = textarea ? textarea.value : input;
+                      const caret = textarea?.selectionStart ?? text.length;
+                      const upto = text.slice(0, caret);
+                      const atIndex = Math.max(
+                        upto.lastIndexOf(" @"),
+                        upto.lastIndexOf("@")
+                      );
+                      const before = text.slice(0, atIndex);
+                      const after = text.slice(caret);
+                      const newText = `${before}${after}`.trimStart();
+                      setInput(newText);
+                      setSelectedPersonaId(item.id);
+                      setMentionOpen(false);
+                      setMentionQuery("");
+                      setTimeout(() => textareaRef.current?.focus(), 0);
+                      return true;
+                    }}
+                    onMentionCancel={() => {
+                      // Case 1: close the mention picker if open
+                      if (mentionOpen) {
+                        setMentionOpen(false);
+                        setMentionQuery("");
+                        return true;
+                      }
+                      // Case 2: when input is empty and a persona chip is set, clear the chip
+                      const isEmpty =
+                        (textareaRef.current?.value || "").trim().length === 0;
+                      if (isEmpty && selectedPersonaId) {
+                        setSelectedPersonaId(null);
+                        setPersonaChipWidth(0);
+                        return true;
+                      }
+                      return false;
+                    }}
+                    disabled={
+                      isLoading || isStreaming || isProcessing || !canSend
+                    }
+                    onHistoryNavigation={handleHistoryNavigation}
+                    onHistoryNavigationDown={handleHistoryNavigationDown}
+                    onHeightChange={handleHeightChange}
+                    isTransitioning={isTransitioning}
+                    autoFocus={isInDrawer || autoFocus}
+                    className={textareaClassName}
+                  />
+                  {mentionOpen && (
+                    <div className="absolute -top-7 left-0 flex items-center gap-1 text-xs text-muted-foreground">
+                      {selectedPersonaId && (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-accent/40 px-1.5 py-0.5">
+                          {currentPersona?.icon ? (
+                            <span className="text-xs">
+                              {currentPersona.icon}
+                            </span>
+                          ) : (
+                            <UserIcon className="h-3.5 w-3.5" />
+                          )}
+                          <span className="max-w-[140px] truncate">
+                            {currentPersona?.name || "Persona"}
+                          </span>
+                          <button
+                            type="button"
+                            className="ml-1 text-muted-foreground hover:text-foreground"
+                            onClick={() => setSelectedPersonaId(null)}
+                            aria-label="Clear persona"
+                          >
+                            <XIcon className="h-3.5 w-3.5" />
+                          </button>
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  <PersonaMentionTypeahead
+                    open={mentionOpen}
+                    items={mentionItems}
+                    activeIndex={mentionActiveIndex}
+                    onHoverIndex={setMentionActiveIndex}
+                    onSelect={pid => {
+                      const textarea = textareaRef.current;
+                      const text = textarea ? textarea.value : input;
+                      const caret = textarea?.selectionStart ?? text.length;
+                      const upto = text.slice(0, caret);
+                      const atIndex = Math.max(
+                        upto.lastIndexOf(" @"),
+                        upto.lastIndexOf("@")
+                      );
+                      const before = text.slice(0, atIndex);
+                      const after = text.slice(caret);
+                      const newText = `${before}${after}`.trimStart();
+                      setInput(newText);
+                      setSelectedPersonaId(pid);
+                      setMentionOpen(false);
+                      setMentionQuery("");
+                      setTimeout(() => textareaRef.current?.focus(), 0);
+                    }}
+                    onClose={() => setMentionOpen(false)}
+                    className="left-0"
+                    placement={(function () {
+                      const rect = textareaRef.current?.getBoundingClientRect();
+                      if (!rect) {
+                        return "bottom" as const;
+                      }
+                      const spaceBelow = window.innerHeight - rect.bottom;
+                      const dropdownHeight = 260; // approx max height inc. paddings
+                      return spaceBelow < dropdownHeight
+                        ? ("top" as const)
+                        : ("bottom" as const);
+                    })()}
+                  />
+                  {!isInDrawer && (
+                    <ExpandToggleButton
+                      onToggle={handleToggleFullscreen}
+                      isVisible={
+                        (isMultiline || isFullscreen || isDrawerOpen) && canSend
+                      }
+                      isExpanded={isFullscreen || isDrawerOpen}
+                      disabled={isLoading || isStreaming || isProcessing}
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* Negative Prompt Area - Integrated below main prompt */}
+              {canSend &&
+                generationMode === "image" &&
+                hasReplicateApiKey &&
+                selectedImageModel?.supportsNegativePrompt && (
+                  <div className="relative mt-1">
+                    {/* Subtle visual separator */}
+                    <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-border/20 to-transparent" />
+
+                    <div className="pt-1">
+                      <NegativePromptToggle
+                        enabled={negativePromptEnabled}
+                        value={imageParams.negativePrompt || ""}
+                        onEnabledChange={handleNegativePromptEnabledChange}
+                        onValueChange={handleNegativePromptValueChange}
+                        disabled={isLoading || isStreaming || isProcessing}
+                        onSubmit={isInDrawer ? handleDrawerSubmit : submit}
+                        className="hidden sm:block"
+                      />
+                    </div>
+                  </div>
+                )}
+            </div>
+
+            <div className="mt-2 flex items-center justify-between gap-2 border-t border-border/20 pt-2">
+              <div className="flex min-w-0 flex-1 items-center gap-0.5 sm:gap-1">
+                {/* Generation Mode Toggle - Always visible */}
+                {canSend && (
+                  <GenerationModeToggle
+                    mode={generationMode}
+                    onModeChange={setGenerationMode}
+                    disabled={isLoading || isStreaming}
+                    hasReplicateApiKey={hasReplicateApiKey}
+                  />
+                )}
+
+                {/* Mobile: Individual drawer controls */}
+                {canSend && generationMode === "text" && (
+                  <>
+                    <PersonaDrawer
+                      conversationId={conversationId}
+                      hasExistingMessages={hasExistingMessages}
+                      selectedPersonaId={selectedPersonaId}
+                      onPersonaSelect={setSelectedPersonaId}
+                      disabled={isLoading || isStreaming || isProcessing}
+                    />
+                    <ModelDrawer
+                      disabled={isLoading || isStreaming || isProcessing}
+                    />
+                    <TemperatureDrawer
+                      temperature={temperature}
+                      onTemperatureChange={setTemperature}
+                      disabled={isLoading || isStreaming || isProcessing}
+                    />
+                    {selectedModel &&
+                      isUserModel(selectedModel) &&
+                      selectedModel.supportsReasoning && (
+                        <ReasoningDrawer
+                          model={selectedModel}
+                          config={reasoningConfig}
+                          onConfigChange={setReasoningConfig}
+                          disabled={isLoading || isStreaming || isProcessing}
+                        />
+                      )}
+                  </>
+                )}
+
+                {/* Mobile: Image generation drawer controls */}
+                {canSend &&
+                  generationMode === "image" &&
+                  !isPrivateMode &&
+                  hasReplicateApiKey && (
+                    <>
+                      <ImageModelDrawer
+                        model={imageParams.model}
+                        onModelChange={model =>
+                          setImageParams(prev => ({ ...prev, model }))
+                        }
+                        enabledImageModels={enabledImageModels || []}
+                        disabled={isLoading || isStreaming || isProcessing}
+                      />
+                      <AspectRatioDrawer
+                        aspectRatio={imageParams.aspectRatio || "1:1"}
+                        onAspectRatioChange={aspectRatio =>
+                          setImageParams(prev => ({
+                            ...prev,
+                            aspectRatio: aspectRatio as
+                              | "1:1"
+                              | "16:9"
+                              | "9:16"
+                              | "4:3"
+                              | "3:4",
+                          }))
+                        }
+                        disabled={isLoading || isStreaming || isProcessing}
+                      />
+                      <ImageSettingsDrawer
+                        params={imageParams}
+                        onParamsChange={updates =>
+                          setImageParams(prev => ({ ...prev, ...updates }))
+                        }
+                        selectedModel={
+                          selectedImageModel
+                            ? {
+                                modelId: selectedImageModel.modelId,
+                                supportsMultipleImages:
+                                  selectedImageModel.supportsMultipleImages ??
+                                  false,
+                              }
+                            : undefined
+                        }
+                        disabled={isLoading || isStreaming || isProcessing}
+                      />
+                      {selectedImageModel?.supportsNegativePrompt && (
+                        <NegativePromptDrawer
+                          enabled={negativePromptEnabled}
+                          value={imageParams.negativePrompt || ""}
+                          onEnabledChange={handleNegativePromptEnabledChange}
+                          onValueChange={handleNegativePromptValueChange}
+                          disabled={isLoading || isStreaming || isProcessing}
+                          onSubmit={isInDrawer ? handleDrawerSubmit : submit}
+                        />
+                      )}
+                    </>
+                  )}
+
+                {/* Desktop: Image generation controls */}
+                {canSend &&
+                  generationMode === "image" &&
+                  !isPrivateMode &&
+                  hasReplicateApiKey && (
+                    <div className="hidden sm:flex items-center gap-0.5 sm:gap-1">
+                      <ImageModelPicker
+                        model={imageParams.model}
+                        onModelChange={model =>
+                          setImageParams(prev => ({ ...prev, model }))
+                        }
+                        enabledImageModels={enabledImageModels || []}
+                      />
+                      <AspectRatioPicker
+                        aspectRatio={imageParams.aspectRatio}
+                        onAspectRatioChange={aspectRatio =>
+                          setImageParams(prev => ({
+                            ...prev,
+                            aspectRatio: aspectRatio as
+                              | "1:1"
+                              | "16:9"
+                              | "9:16"
+                              | "4:3"
+                              | "3:4",
+                          }))
+                        }
+                      />
+                      <ImageGenerationSettings
+                        params={imageParams}
+                        onParamsChange={updates =>
+                          setImageParams(prev => ({ ...prev, ...updates }))
+                        }
+                        selectedModel={
+                          selectedImageModel
+                            ? {
+                                modelId: selectedImageModel.modelId,
+                                supportsMultipleImages:
+                                  selectedImageModel.supportsMultipleImages ??
+                                  false,
+                              }
+                            : undefined
+                        }
+                      />
+                    </div>
+                  )}
+
+                {/* Desktop: Text generation controls */}
+                {canSend && generationMode === "text" && (
+                  <div className="hidden sm:flex items-center gap-0.5 sm:gap-1">
+                    <PersonaSelector
+                      conversationId={conversationId}
+                      hasExistingMessages={hasExistingMessages}
+                      selectedPersonaId={selectedPersonaId}
+                      onPersonaSelect={setSelectedPersonaId}
+                    />
+                    <ModelPicker />
+                    <TemperaturePicker
+                      temperature={temperature}
+                      onTemperatureChange={setTemperature}
+                    />
+                    {selectedModel &&
+                      isUserModel(selectedModel) &&
+                      selectedModel.supportsReasoning && (
+                        <ReasoningPicker
+                          model={selectedModel}
+                          config={reasoningConfig}
+                          onConfigChange={setReasoningConfig}
+                        />
+                      )}
+                  </div>
+                )}
+
+                {/* File Upload Button */}
+                {canSend && (
+                  <FileUploadButton
+                    onAddAttachments={addAttachments}
+                    isSubmitting={isProcessing}
+                    selectedModel={selectedModel}
+                  />
+                )}
+              </div>
+              <SendButtonGroup
+                canSend={canSend}
+                isStreaming={Boolean(isStreaming)}
+                isLoading={Boolean(isLoading || isProcessing)}
+                isSummarizing={false}
+                hasExistingMessages={Boolean(hasExistingMessages)}
+                conversationId={conversationId}
+                hasInputText={deferredInputHasText}
+                onSend={isInDrawer ? handleDrawerSubmit : submit}
+                onStop={onStop}
+                onSendAsNewConversation={
+                  onSendAsNewConversation
+                    ? handleSendAsNewConversation
+                    : undefined
+                }
+                hasApiKeys={canSend}
+                hasEnabledModels={canSend}
+                personaId={selectedPersonaId}
+                reasoningConfig={reasoningConfig}
+              />
+            </div>
+          </>
+        );
+      },
+      [
+        attachments,
+        removeAttachment,
+        selectedPersonaId,
+        currentPersona,
+        setSelectedPersonaId,
+        conversationId,
+        input,
+        handleInputChange,
+        handleDrawerSubmit,
+        submit,
+        dynamicPlaceholder,
+        personaChipWidth,
+        mentionOpen,
+        mentionItems,
+        mentionActiveIndex,
+        setInput,
+        isLoading,
+        isStreaming,
+        isProcessing,
+        canSend,
+        handleHistoryNavigation,
+        handleHistoryNavigationDown,
+        handleHeightChange,
+        isTransitioning,
+        autoFocus,
+        isFullscreen,
+        generationMode,
+        hasReplicateApiKey,
+        selectedImageModel,
+        negativePromptEnabled,
+        imageParams,
+        handleNegativePromptEnabledChange,
+        handleNegativePromptValueChange,
+        hasExistingMessages,
+        setTemperature,
+        selectedModel,
+        reasoningConfig,
+        setReasoningConfig,
+        enabledImageModels,
+        isPrivateMode,
+        temperature,
+        addAttachments,
+        deferredInputHasText,
+        onStop,
+        onSendAsNewConversation,
+        handleSendAsNewConversation,
+        handleToggleFullscreen,
+        isMultiline,
+        isDrawerOpen,
+      ]
+    );
 
     if (user === undefined) {
       return null;
@@ -1588,6 +2092,16 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             </div>
           </div>
         </div>
+
+        {/* Mobile Fullscreen Drawer */}
+        <ChatInputDrawer
+          open={isDrawerOpen}
+          onOpenChange={setIsDrawerOpen}
+          onSubmit={handleDrawerSubmit}
+          textareaRef={textareaRef}
+        >
+          {renderFormContent(true)}
+        </ChatInputDrawer>
       </div>
     );
   }
