@@ -974,8 +974,11 @@ export const MessageActions = memo(
     }
 
     const containerClassName = cn(
-      "flex items-center gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100",
-      "translate-y-0 sm:translate-y-1 sm:group-hover:translate-y-0",
+      "flex items-center gap-2",
+      // Mobile: Always visible
+      "opacity-100 translate-y-0",
+      // Desktop: Hidden by default, visible on hover
+      "sm:opacity-0 sm:translate-y-1 sm:group-hover:opacity-100 sm:group-hover:translate-y-0",
       "transition-all duration-200 ease-out",
       "@media (prefers-reduced-motion: reduce) { transition-duration: 0ms; opacity: 100; transform: none }",
       isUser && isEditing && "opacity-0 pointer-events-none translate-y-2",

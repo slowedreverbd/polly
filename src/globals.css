@@ -934,6 +934,71 @@ pre {
     transition: all 0.2s ease;
 }
 
+/* Ensure icons are always visible on mobile */
+@media (max-width: 640px) {
+    .btn-action svg,
+    .btn-action-destructive svg {
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+    
+    /* Ensure message action icons are always visible on mobile */
+    [data-message-role] .btn-action svg,
+    [data-message-role] .btn-action-destructive svg {
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+    
+    /* Ensure all icons in chat messages are visible on mobile */
+    .chat-message-container .btn-action svg,
+    .chat-message-container .btn-action-destructive svg {
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+    
+    /* Ensure all action buttons are visible on mobile */
+    .btn-action,
+    .btn-action-destructive {
+        opacity: 1 !important;
+        visibility: visible !important;
+        transform: none !important;
+    }
+    
+    /* Override any hover states on mobile */
+    .btn-action:hover,
+    .btn-action-destructive:hover {
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+    
+    /* High specificity rules for mobile icon visibility */
+    body[data-mobile="true"] .btn-action svg,
+    body[data-mobile="true"] .btn-action-destructive svg,
+    html[data-mobile="true"] .btn-action svg,
+    html[data-mobile="true"] .btn-action-destructive svg {
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+}
+
+/* Additional mobile icon visibility rules using data attributes */
+body[data-mobile="true"] .btn-action,
+body[data-mobile="true"] .btn-action-destructive,
+html[data-mobile="true"] .btn-action,
+html[data-mobile="true"] .btn-action-destructive {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: none !important;
+}
+
+body[data-mobile="true"] .btn-action svg,
+body[data-mobile="true"] .btn-action-destructive svg,
+html[data-mobile="true"] .btn-action svg,
+html[data-mobile="true"] .btn-action-destructive svg {
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
 /* Destructive Action Button Styles */
 .btn-action-destructive {
     background: transparent;
