@@ -531,7 +531,7 @@ export const AssistantBubble = ({
           const outputUrls = message.imageGeneration.output || [];
           return generatedImages.length > 0 || outputUrls.length > 0;
         })() ? (
-          <div className="flex items-center gap-2 mt-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-300 ease-out">
+          <div className="flex items-center gap-2 mt-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-300 ease-out">
             <div className="flex items-center gap-1">
               {/* Image Actions */}
               <ImageActions
